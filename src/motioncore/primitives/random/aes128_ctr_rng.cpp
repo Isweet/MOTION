@@ -25,6 +25,8 @@
 #include <fstream>
 #include "primitives/aes/aesni_primitives.h"
 
+#include <array>
+
 namespace encrypto::motion {
 
 thread_local Aes128CtrRng Aes128CtrRng::thread_instance_;

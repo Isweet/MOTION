@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <memory>
 #include <vector>
+#include <array>
 
 #include <openssl/aes.h>
 #include <openssl/evp.h>

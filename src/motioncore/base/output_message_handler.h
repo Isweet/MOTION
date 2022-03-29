@@ -25,6 +25,8 @@
 #include "communication/message_handler.h"
 #include "utility/reusable_future.h"
 
+#include <unordered_map>
+
 namespace encrypto::motion {
 
 class Logger;

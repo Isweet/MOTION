@@ -27,9 +27,11 @@
 namespace encrypto::motion {
 
 void ThreadSetName(std::thread& thread, const std::string& name) {
+#if !defined(__APPLE__)
   assert(name.size() <= 16);
   auto handle = thread.native_handle();
   pthread_setname_np(handle, name.c_str());
+#endif
 }
 
 }  // namespace encrypto::motion

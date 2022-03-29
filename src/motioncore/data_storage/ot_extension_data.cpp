@@ -220,12 +220,12 @@ OtExtensionReceiverData::RegisterForGenericSenderMessage(std::size_t ot_id, std:
   return future;
 }
 
-template <typename T>
-ReusableFiberFuture<std::vector<T>> OtExtensionReceiverData::RegisterForIntSenderMessage(
+template <typename U>
+ReusableFiberFuture<std::vector<U>> OtExtensionReceiverData::RegisterForIntSenderMessage(
     std::size_t ot_id, std::size_t size) {
-  ReusableFiberPromise<std::vector<T>> promise;
+  ReusableFiberPromise<std::vector<U>> promise;
   auto future = promise.get_future();
-  auto [it, success] = message_promises_int[boost::hana::type_c<T>].emplace(
+  auto [it, success] = message_promises_int[boost::hana::type_c<U>].emplace(
       ot_id, std::make_pair(size, std::move(promise)));
   if (!success) {
     throw std::runtime_error(
