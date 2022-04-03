@@ -152,6 +152,10 @@ if (MOTION_BUILD_EXE)
     add_subdirectory(src/examples)
 endif (MOTION_BUILD_EXE)
 
+if (MOTION_BUILD_FFI)
+    add_subdirectory(src/ffi)
+endif (MOTION_BUILD_FFI)
+
 if (MOTION_BUILD_DOC)
     add_subdirectory(doc)
 endif (MOTION_BUILD_DOC)
