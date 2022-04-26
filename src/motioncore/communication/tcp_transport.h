@@ -68,6 +68,7 @@ using TcpPartiesConfiguration = std::vector<TcpConnectionConfiguration>;
 // parties with larger IDs.
 class TcpSetupHelper {
  public:
+  TcpSetupHelper(std::size_t my_id, std::size_t num_parties);
   TcpSetupHelper(std::size_t my_id, const TcpPartiesConfiguration& parties_configuration);
 
   // Destructor needs to be defined in implementation due to pimpl
@@ -76,6 +77,8 @@ class TcpSetupHelper {
   // Try to establish connections as described above.
   // Throws a std::runtime_error if something goes wrong.
   std::vector<std::unique_ptr<Transport>> SetupConnections();
+
+  std::vector<std::unique_ptr<Transport>> UseConnections(const std::vector<int>& handles);
 
  private:
   struct TcpSetupImplementation;

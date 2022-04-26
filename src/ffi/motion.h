@@ -4,6 +4,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "base/party.h"
+#include "protocols/share_wrapper.h"
+
 // https://caiorss.github.io/C-Cpp-Notes/CwrapperToQtLibrary.html
 #ifdef __cplusplus
   #define EXPORT_C extern "C"
@@ -11,19 +14,18 @@
   #define EXPORT_C
 #endif
 
-typedef struct party_config {
-  size_t id;
-  const char *host;
-  uint16_t port;
-} party_config;
+typedef encrypto::motion::Party Party;
 
-typedef void* motion_party_config;
+EXPORT_C Party* motion_party_new(size_t my_id, int *others_tcp_sockets, size_t others_tcp_sockets_len);
+EXPORT_C void   motion_party_run(Party* party);
+EXPORT_C void   motion_party_delete(Party* party);
 
-EXPORT_C motion_party_config party_config_new(size_t my_id, party_config* party_configs, size_t party_configs_len);
+typedef encrypto::motion::ShareWrapper GmwBool;
 
-typedef void* motion_party;
-
-EXPORT_C motion_party party_new(size_t my_id, motion_party_config config);
-EXPORT_C size_t party_my_id(motion_party);
+EXPORT_C GmwBool* motion_gmw_bool_new(Party* party, bool share);
+EXPORT_C GmwBool* motion_gmw_bool_constant(Party* party, bool value);
+EXPORT_C GmwBool* motion_gmw_bool_and(GmwBool* a, GmwBool* b);
+EXPORT_C bool     motion_gmw_bool_reify(GmwBool* share);
+EXPORT_C void     motion_gmw_bool_delete(GmwBool* share);
 
 #endif
