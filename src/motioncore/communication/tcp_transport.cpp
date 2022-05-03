@@ -35,8 +35,6 @@
 #include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
 
-#include <iostream>
-
 // Undefine Windows macros that collide with function names in MOTION.
 #ifdef SendMessage
 #undef SendMessage
@@ -51,12 +49,11 @@ namespace detail {
 struct TcpTransportImplementation {
   TcpTransportImplementation(std::shared_ptr<boost::asio::io_context> io_context,
                              tcp::socket&& socket,
-                             bool own_socket)
-    : io_context_(io_context), socket_(std::move(socket)), own_socket_(own_socket) {}
+                             bool owned)
+    : io_context_(io_context), socket_(std::move(socket)) {}
   std::shared_ptr<boost::asio::io_context> io_context_;
   boost::asio::ip::tcp::socket socket_;
   std::shared_mutex socket_mutex_;
-  bool own_socket_;
 };
 
 }  // namespace detail
@@ -76,22 +73,16 @@ bool TcpTransport::Available() const {
 }
 
 void TcpTransport::ShutdownSend() {
-  if (implementation_->own_socket_) {
-    std::cout << "SHUTDOWN_SEND" << std::endl;
-    std::scoped_lock lock(implementation_->socket_mutex_);
-    boost::system::error_code ec;
-    implementation_->socket_.shutdown(tcp::socket::shutdown_send, ec);
-  }
+  std::scoped_lock lock(implementation_->socket_mutex_);
+  boost::system::error_code ec;
+  implementation_->socket_.shutdown(tcp::socket::shutdown_send, ec);
 }
 
 void TcpTransport::Shutdown() {
-  if (implementation_->own_socket_) {
-    std::cout << "SHUTDOWN" << std::endl;
-    std::scoped_lock lock(implementation_->socket_mutex_);
-    boost::system::error_code ec;
-    implementation_->socket_.shutdown(tcp::socket::shutdown_both, ec);
-    implementation_->socket_.close(ec);
-  }
+  std::scoped_lock lock(implementation_->socket_mutex_);
+  boost::system::error_code ec;
+  implementation_->socket_.shutdown(tcp::socket::shutdown_both, ec);
+  implementation_->socket_.close(ec);
 }
 
 void TcpTransport::SendMessage(std::vector<std::uint8_t>&& message) { SendMessage(message); }
@@ -108,11 +99,6 @@ void TcpTransport::SendMessage(const std::vector<std::uint8_t>& message) {
                                          std::numeric_limits<std::uint32_t>::max(),
                                          message.size()));
   }
-
-  static int send_count = 0;
-
-  std::cout << "SEND: " << ++send_count << std::endl;
-
   std::array<std::uint8_t, sizeof(std::uint32_t)> message_size;
   u32tou8(message.size(), message_size.data());
 
@@ -120,17 +106,13 @@ void TcpTransport::SendMessage(const std::vector<std::uint8_t>& message) {
                                                       boost::asio::buffer(message)};
 
   boost::system::error_code ec;
-
-  std::cout << "SEND_WAIT" << std::endl;
   std::shared_lock lock(implementation_->socket_mutex_);
-  std::cout << "SEND_ACQ" << std::endl;
   boost::asio::write(implementation_->socket_, buffers, boost::asio::transfer_all(), ec);
   if (ec) {
     throw std::runtime_error(fmt::format("Error while writing to socket: {}", ec.message()));
   }
   statistics_.number_of_bytes_sent += message.size() + sizeof(uint32_t);
   statistics_.number_of_messages_sent += 1;
-  std::cout << "SEND_DROP" << std::endl;
 }
 
 static std::uint32_t u8tou32(std::array<std::uint8_t, sizeof(std::uint32_t)>& v) {
@@ -142,13 +124,9 @@ static std::uint32_t u8tou32(std::array<std::uint8_t, sizeof(std::uint32_t)>& v)
 }
 
 std::optional<std::vector<std::uint8_t>> TcpTransport::ReceiveMessage() {
-  static int recv_count = 0;
-  std::cout << "RECEIVE: " << ++recv_count << std::endl;
   std::array<std::uint8_t, sizeof(std::uint32_t)> message_size_buffer;
   boost::system::error_code ec;
-  std::cout << "RECV_WAIT" << std::endl;
   std::shared_lock lock(implementation_->socket_mutex_);
-  std::cout << "RECV_ACQ" << std::endl;
   implementation_->socket_.wait(tcp::socket::wait_read, ec);
   if (ec) {
     throw std::runtime_error(
@@ -156,7 +134,6 @@ std::optional<std::vector<std::uint8_t>> TcpTransport::ReceiveMessage() {
   }
   boost::asio::read(implementation_->socket_, boost::asio::buffer(message_size_buffer),
                     boost::asio::transfer_exactly(message_size_buffer.size()), ec);
-  std::cout << "RECV_SIZE" << std::endl;
   if (ec) {
     if (ec.value() == boost::asio::error::misc_errors::eof) {
       // connection has been closed
@@ -176,7 +153,6 @@ std::optional<std::vector<std::uint8_t>> TcpTransport::ReceiveMessage() {
   statistics_.number_of_bytes_received += message_size + sizeof(uint32_t);
   statistics_.number_of_messages_received += 1;
   return message_buffer;
-  std::cout << "RECV_DROP" << std::endl;
 }
 
 using namespace std::chrono_literals;
@@ -195,13 +171,6 @@ struct TcpSetupHelper::TcpSetupImplementation {
   std::shared_ptr<boost::asio::io_context> io_context_;
   std::map<std::size_t, tcp::socket> sockets_;
 };
-
-  TcpSetupHelper::TcpSetupHelper(std::size_t my_id, std::size_t num_parties)
-    : my_id_(my_id),
-      number_of_parties_(num_parties),
-      implementation_(std::make_unique<TcpSetupImplementation>()) {
-    implementation_->io_context_ = std::make_shared<boost::asio::io_context>();
-  }
 
 TcpSetupHelper::TcpSetupHelper(std::size_t my_id,
                                const TcpPartiesConfiguration& parties_configuration)
@@ -268,27 +237,13 @@ std::vector<std::unique_ptr<Transport>> TcpSetupHelper::SetupConnections() {
                 [this, &result](auto& iterator) {
                   auto transport_implementation =
                       std::make_unique<detail::TcpTransportImplementation>(
-                        implementation_->io_context_, std::move(iterator.second), true);
+                                                                           implementation_->io_context_, std::move(iterator.second), true);
                   result.at(iterator.first) =
                       std::make_unique<TcpTransport>(std::move(transport_implementation));
                 });
   return result;
 }
 
-  std::vector<std::unique_ptr<Transport>> TcpSetupHelper::UseConnections(const std::vector<int>& handles) {
-    std::vector<std::unique_ptr<Transport>> result(number_of_parties_);
-    for (std::size_t i = 0; i < number_of_parties_; i++) {
-      if (my_id_ == i) {
-        continue;
-      }
-      tcp::socket socket(*implementation_->io_context_);
-      std::cout << "Assigning: " << handles[i] << std::endl;
-      socket.assign(tcp::v4(), handles[i]);
-      auto transport_implementation = std::make_unique<detail::TcpTransportImplementation>(implementation_->io_context_, std::move(socket), false);
-      result[i] = std::make_unique<TcpTransport>(std::move(transport_implementation));
-    }
-    return result;
-  }
 
 std::map<std::size_t, tcp::socket> TcpSetupHelper::TcpSetupImplementation::accept_task() {
   if (my_id_ == number_of_parties_ - 1) {

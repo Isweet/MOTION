@@ -11,3 +11,9 @@ target_link_libraries(motionffi PRIVATE
 
 install(TARGETS motionffi DESTINATION lib)
 install(FILES motion.h DESTINATION include)
+
+add_executable(test test.cpp)
+
+target_link_libraries(test
+        MOTION::motion
+        motionffi)
