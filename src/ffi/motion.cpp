@@ -17,7 +17,11 @@ Party* motion_party_new(size_t my_id, const char** hosts, const uint16_t* ports,
   }
 
   communication::TcpSetupHelper helper(my_id, config);
+  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
   auto communication_layer = std::make_unique<communication::CommunicationLayer>(my_id, helper.SetupConnections());
+  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+  std::cout << "Communication Layer took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
+
   return new Party(std::move(communication_layer));
 }
 
