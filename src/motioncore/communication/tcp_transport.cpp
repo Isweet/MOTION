@@ -48,8 +48,7 @@ namespace detail {
 
 struct TcpTransportImplementation {
   TcpTransportImplementation(std::shared_ptr<boost::asio::io_context> io_context,
-                             tcp::socket&& socket,
-                             bool owned)
+                             tcp::socket&& socket)
     : io_context_(io_context), socket_(std::move(socket)) {}
   std::shared_ptr<boost::asio::io_context> io_context_;
   boost::asio::ip::tcp::socket socket_;
@@ -237,7 +236,7 @@ std::vector<std::unique_ptr<Transport>> TcpSetupHelper::SetupConnections() {
                 [this, &result](auto& iterator) {
                   auto transport_implementation =
                       std::make_unique<detail::TcpTransportImplementation>(
-                                                                           implementation_->io_context_, std::move(iterator.second), true);
+                                                                           implementation_->io_context_, std::move(iterator.second));
                   result.at(iterator.first) =
                       std::make_unique<TcpTransport>(std::move(transport_implementation));
                 });

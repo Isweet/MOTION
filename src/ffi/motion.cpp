@@ -1,15 +1,15 @@
 #include "utility/bit_vector.h"
 #include "communication/communication_layer.h"
 #include "communication/tcp_transport.h"
-
+#include "communication/shared_transport.h"
 
 #include "motion.h"
 
 using namespace encrypto::motion;
 
-// MOTION Party
+// MOTION Transports
 
-Party* motion_party_new(size_t my_id, const char** hosts, const uint16_t* ports, size_t len) {
+std::pair<size_t, std::vector<communication::SharedTransport>>* motion_transports_new(size_t my_id, const char** hosts, const uint16_t* ports, size_t len) {
   communication::TcpPartiesConfiguration config(len);
 
   for (size_t i = 0; i < len; i++) {
@@ -17,11 +17,42 @@ Party* motion_party_new(size_t my_id, const char** hosts, const uint16_t* ports,
   }
 
   communication::TcpSetupHelper helper(my_id, config);
-  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-  auto communication_layer = std::make_unique<communication::CommunicationLayer>(my_id, helper.SetupConnections());
-  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-  std::cout << "Communication Layer took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
+  std::vector<std::unique_ptr<communication::Transport>> tcp_transports = helper.SetupConnections();
 
+  std::vector<communication::SharedTransport> shared_transports = std::vector<communication::SharedTransport>(len);
+
+  for (size_t i = 0; i < len; i++) {
+    shared_transports[i] = communication::SharedTransport(std::move(tcp_transports[i]));
+  }
+
+  return new std::pair<size_t, std::vector<communication::SharedTransport>>(my_id, shared_transports);
+}
+
+void motion_transports_delete(std::pair<size_t, std::vector<communication::SharedTransport>>* transports) {
+  size_t len = transports->second.size();
+
+  for (size_t i = 0; i < len; i++) {
+    if (i == transports->first) {
+      continue;
+    }
+
+    transports->second[i].Drop();
+  }
+
+  delete transports;
+}
+
+// MOTION Party
+
+Party* motion_party_new(size_t my_id, std::pair<size_t, std::vector<communication::SharedTransport>>* shared_transports) {
+  size_t len = shared_transports->second.size();
+  std::vector<std::unique_ptr<communication::Transport>> transports(len);
+
+  for (size_t i = 0; i < len; i++) {
+    transports[i] = std::make_unique<communication::SharedTransport>(shared_transports->second[i]);
+  }
+
+  auto communication_layer = std::make_unique<communication::CommunicationLayer>(my_id, std::move(transports));
   return new Party(std::move(communication_layer));
 }
 

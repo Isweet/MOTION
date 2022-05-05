@@ -15,9 +15,14 @@
   #define EXPORT_C
 #endif
 
+typedef std::pair<size_t, std::vector<encrypto::motion::communication::SharedTransport>> Transports;
+
+EXPORT_C Transports* motion_transports_new(size_t my_id, const char** hosts, const uint16_t* ports, size_t len);
+EXPORT_C void        motion_transports_delete(Transports* transports);
+
 typedef encrypto::motion::Party Party;
 
-EXPORT_C Party* motion_party_new(size_t my_id, const char** hosts, const uint16_t* ports, size_t len);
+EXPORT_C Party* motion_party_new(size_t my_id, Transports* shared_transports);
 EXPORT_C void   motion_party_run(Party* party);
 EXPORT_C void   motion_party_delete(Party* party);
 
